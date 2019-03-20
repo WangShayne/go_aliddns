@@ -3,12 +3,12 @@ module go-aliddns
 go 1.12
 
 require (
-	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190319024917-0ecf95d74764 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190319024917-0ecf95d74764
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/robfig/cron v0.0.0-20180505203441-b41be1df6967 // indirect
+	github.com/robfig/cron v0.0.0-20180505203441-b41be1df6967
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/spf13/viper v1.3.2
 	gopkg.in/ini.v1 v1.42.0 // indirect
