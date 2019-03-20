@@ -1,6 +1,12 @@
 #### 说明
 半小时更新一次,如果ip变化调用阿里云sdk更新解析地址
 
+交叉编译
+
+    windows64 `CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o go_aliddns.exe go_aliddns.go`
+
+    linux64 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o go_aliddns go_aliddns.go`
+
 
 #### 配置文件
 1.创建config.yaml
