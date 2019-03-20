@@ -4,7 +4,7 @@
 
 #### 配置文件
 1.创建config.yaml
-ex.
+
 ```
 
 DomainName : 'wssmyy.xyz' # 主机域名
