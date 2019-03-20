@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/alidns"
+	"github.com/robfig/cron"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
@@ -15,14 +16,16 @@ var (
 	RR,
 	Type,
 	Value,
-	accessKeyId,
-	accessSecret string
+	AccessKeyId,
+	AccessSecret,
+	RecordId string
 	TTL int32
 )
 
 // 文件相关操作
 // ------------------------------------------------
 const ipFileName = "ip.txt"
+const RecordIdFileName = "RecordId.txt"
 
 // 判断文件是否存在
 func CheckFileIsExist(filename string) bool {
@@ -43,7 +46,7 @@ func ReaderFile(filename string) string {
 
 // 写入文件
 func WriteFile(filename, str string) bool {
-	err := ioutil.WriteFile(ipFileName, []byte(str), 0777)
+	err := ioutil.WriteFile(filename, []byte(str), 0777)
 	if err != nil {
 		return false
 	}
@@ -68,20 +71,16 @@ func GetIPAddressByHttp() string {
 	return string(ip)
 }
 
-// 获取ip
-func GetIP() (ip string) {
-	ip = GetIPAddressByHttp()
-
-	if CheckFileIsExist(ipFileName) { // ip地址文件不存在
+func CheckIPChange() bool {
+	ip := GetIPAddressByHttp()
+	Value = ip
+	if tmpIp := ReaderFile(ipFileName); ip != tmpIp { // 如果存在且地址变化了 重新写入
 		WriteFile(ipFileName, ip)
+		return true
 	} else {
-		if tmpIp := ReaderFile(ipFileName); ip != tmpIp { // 如果存在且地址变化了 重新写入
-			WriteFile(ipFileName, ip)
-			fmt.Printf("上次解析的ip:%s", tmpIp)
-			fmt.Printf("本次解析的ip:%s", ip)
-		}
+		return false
 	}
-	return
+
 }
 
 // ------------------------------------------------
@@ -92,7 +91,7 @@ func GetIP() (ip string) {
 
 // 检测解析记录是否生效
 func ChecCheckDomainRecordk() bool {
-	client, err := alidns.NewClientWithAccessKey("cn-hangzhou", accessKeyId, accessSecret)
+	client, err := alidns.NewClientWithAccessKey("cn-hangzhou", AccessKeyId, AccessSecret)
 
 	request := alidns.CreateCheckDomainRecordRequest()
 	request.DomainName = DomainName
@@ -105,8 +104,7 @@ func ChecCheckDomainRecordk() bool {
 		fmt.Print("检测解析记录失败")
 		return false
 	}
-	fmt.Printf("response is %#v\n", response)
-	fmt.Println(response.IsExist)
+
 	if response.IsExist {
 		fmt.Println("解析记录已生效")
 		return true
@@ -114,11 +112,68 @@ func ChecCheckDomainRecordk() bool {
 		fmt.Println("解析记录未生效")
 		return false
 	}
+
+}
+
+// 添加解析记录
+func AddDomainRecord() {
+	client, err := alidns.NewClientWithAccessKey("cn-hangzhou", AccessKeyId, AccessSecret)
+
+	request := alidns.CreateAddDomainRecordRequest()
+
+	request.Value = Value
+	request.Type = Type
+	request.RR = RR
+	request.DomainName = DomainName
+
+	response, err := client.AddDomainRecord(request)
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+	fmt.Println("新增记录成功")
+	WriteFile(RecordIdFileName, response.RecordId)
+}
+
+// 更新解析记录
+func UpdateDomainRecord() {
+	RecordId = ReaderFile(RecordIdFileName)
+	client, err := alidns.NewClientWithAccessKey("cn-hangzhou", AccessKeyId, AccessSecret)
+
+	request := alidns.CreateUpdateDomainRecordRequest()
+
+	request.Value = Value
+	request.Type = Type
+	request.RR = RR
+	request.RecordId = RecordId
+
+	response, err := client.UpdateDomainRecord(request)
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+	fmt.Println("更新记录成功")
+	WriteFile(RecordIdFileName, response.RecordId)
+}
+
+// ------------------------------------------------
+
+// 定时任务
+
+// ------------------------------------------------
+func Time_task() {
+	fmt.Println("定时任务启动")
+	if CheckIPChange() { // ip改变了
+		if CheckFileIsExist(RecordIdFileName) && ReaderFile(RecordIdFileName) != "" { // 已有解析记录
+			UpdateDomainRecord()
+		} else {
+			AddDomainRecord()
+		}
+	}
 }
 
 // ------------------------------------------------
 
 // 初始化相关操作
+
 // ------------------------------------------------
 
 func initViper() {
@@ -140,22 +195,22 @@ func initViper() {
 
 func init() {
 	initViper()
-
 	DomainName = viper.GetString("DomainName")
 	RR = viper.GetString("RR")
 	Type = viper.GetString("Type")
-	accessKeyId = viper.GetString("accessKeyId")
-	accessSecret = viper.GetString("accessSecret")
+	AccessKeyId = viper.GetString("AccessKeyId")
+	AccessSecret = viper.GetString("AccessSecret")
 	TTL = viper.GetInt32("TTL")
-	Value = GetIP()
 }
 
 // ------------------------------------------------
 
 // main
 func main() {
-	ChecCheckDomainRecordk()
-	fmt.Println(DomainName)
-	fmt.Println(RR)
-	fmt.Println("this is go-aliddns project")
+	Time_task()
+	c := cron.New()
+	c.AddFunc("0 30 * * * *", Time_task)
+	c.Start()
+	fmt.Println("起飞")
+	select {}
 }
